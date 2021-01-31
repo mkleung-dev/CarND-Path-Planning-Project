@@ -5,24 +5,11 @@
 #include <string>
 #include <vector>
 
+#include "waypointmap.h"
+
 // for convenience
 using std::string;
 using std::vector;
-
-// Checks if the SocketIO event has JSON data.
-// If there is data the JSON object in string format will be returned,
-//   else the empty string "" will be returned.
-string hasData(string s) {
-  auto found_null = s.find("null");
-  auto b1 = s.find_first_of("[");
-  auto b2 = s.find_first_of("}");
-  if (found_null != string::npos) {
-    return "";
-  } else if (b1 != string::npos && b2 != string::npos) {
-    return s.substr(b1, b2 - b1 + 2);
-  }
-  return "";
-}
 
 //
 // Helper functions related to waypoints and converting from XY to Frenet
@@ -145,6 +132,32 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
 
   double seg_x = maps_x[prev_wp]+seg_s*cos(heading);
   double seg_y = maps_y[prev_wp]+seg_s*sin(heading);
+
+  double perp_heading = heading-pi()/2;
+
+  double x = seg_x + d*cos(perp_heading);
+  double y = seg_y + d*sin(perp_heading);
+
+  return {x,y};
+}
+
+// Transform from Frenet s,d coordinates to Cartesian x,y
+vector<double> getXY(double s, double d, const WayPointMap &way_point_map) {
+  int prev_wp = -1;
+
+  while (s > way_point_map.map_waypoints_s[prev_wp+1] && (prev_wp < (int)(way_point_map.map_waypoints_s.size()-1))) {
+    ++prev_wp;
+  }
+
+  int wp2 = (prev_wp+1)%way_point_map.map_waypoints_x.size();
+
+  double heading = atan2((way_point_map.map_waypoints_y[wp2]-way_point_map.map_waypoints_y[prev_wp]),
+                         (way_point_map.map_waypoints_x[wp2]-way_point_map.map_waypoints_x[prev_wp]));
+  // the x,y,s along the segment
+  double seg_s = (s-way_point_map.map_waypoints_s[prev_wp]);
+
+  double seg_x = way_point_map.map_waypoints_x[prev_wp]+seg_s*cos(heading);
+  double seg_y = way_point_map.map_waypoints_y[prev_wp]+seg_s*sin(heading);
 
   double perp_heading = heading-pi()/2;
 

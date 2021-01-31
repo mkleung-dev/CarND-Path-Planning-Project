@@ -5,13 +5,30 @@
 #include <vector>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
-#include "helpers.h"
 #include "json.hpp"
+
+#include "waypointmap.h"
+#include "vehicle.h"
 
 // for convenience
 using nlohmann::json;
 using std::string;
 using std::vector;
+
+// Checks if the SocketIO event has JSON data.
+// If there is data the JSON object in string format will be returned,
+//   else the empty string "" will be returned.
+string hasData(string s) {
+  auto found_null = s.find("null");
+  auto b1 = s.find_first_of("[");
+  auto b2 = s.find_first_of("}");
+  if (found_null != string::npos) {
+    return "";
+  } else if (b1 != string::npos && b2 != string::npos) {
+    return s.substr(b1, b2 - b1 + 2);
+  }
+  return "";
+}
 
 int main() {
   uWS::Hub h;
@@ -22,6 +39,8 @@ int main() {
   vector<double> map_waypoints_s;
   vector<double> map_waypoints_dx;
   vector<double> map_waypoints_dy;
+
+  WayPointMap way_point_map;
 
   // Waypoint map to read from
   string map_file_ = "../data/highway_map.csv";
@@ -48,10 +67,13 @@ int main() {
     map_waypoints_s.push_back(s);
     map_waypoints_dx.push_back(d_x);
     map_waypoints_dy.push_back(d_y);
+
+    way_point_map.Add(x, y, s, d_x, d_y);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy]
+  Vehicle vehicle(way_point_map);
+
+  h.onMessage([&vehicle]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -97,6 +119,9 @@ int main() {
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
+          std::cout.precision(10);
+          vehicle.update_position(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+          vehicle.compute_path(previous_path_x, previous_path_y, next_x_vals, next_y_vals);
 
 
           msgJson["next_x"] = next_x_vals;

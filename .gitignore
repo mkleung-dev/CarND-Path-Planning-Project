@@ -1,0 +1,22 @@
+# silly macOS
+.DS_Store
+
+# build files
+build/
+
+# editor config
+.vscode/
+
+# Xcode
+*.pbxuser
+!default.pbxuser
+*.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+ide_profiles/xcode/Debug/
+ide_profiles/xcode/ExtendedKF.build/
+
