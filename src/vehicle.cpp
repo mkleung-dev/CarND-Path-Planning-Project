@@ -7,7 +7,7 @@
 Vehicle::Vehicle() {
   lane_available = 3;
   lane_width = 4.0;
-  max_velocity = 50.0 / 2.24;
+  max_velocity = 45 / 2.24;
   max_acc = 9.5;
   max_jerk = 9.5;
   target_speed = max_velocity;
@@ -57,7 +57,7 @@ void Vehicle::update_position(double x, double y,
   this->d = d;
   this->yaw = yaw;
   this->speed = speed;
-  std::cout << "update,x," << x << ",y," << y << ",s," << s << ",d," << d << ",yaw," << yaw << ",speed," << speed << std::endl;
+  //std::cout << "update,x," << x << ",y," << y << ",s," << s << ",d," << d << ",yaw," << yaw << ",speed," << speed << std::endl;
 }
 
 void Vehicle::compute_path(const vector<double> &previous_path_x,
@@ -100,6 +100,10 @@ void Vehicle::compute_path(const vector<double> &previous_path_x,
       double v2 = sqrt((ref_x_prev - ref_x_prev_prev) * (ref_x_prev - ref_x_prev_prev) + (ref_y_prev - ref_y_prev_prev) * (ref_y_prev - ref_y_prev_prev)) / 0.02;
 
       ref_acc = (ref_speed - v2) / 0.02;
+
+      std::cout << "Prev," << previous_path_x[prev_size - 3] << "," << previous_path_y[prev_size - 3] << std::endl;
+      std::cout << "Prev," << previous_path_x[prev_size - 2] << "," << previous_path_y[prev_size - 2] << std::endl;
+      std::cout << "Prev," << previous_path_x[prev_size - 1] << "," << previous_path_y[prev_size - 1] << std::endl;
     }  
   }
 
@@ -141,30 +145,20 @@ void Vehicle::compute_path(const vector<double> &previous_path_x,
   double x_add_on = 0;
 
   double vel = ref_speed;
-  double acc = ref_acc;
   std::cout << "init vel," << vel << ",init acc," << acc << std::endl;
   for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
-
-    if (target_speed > vel) {
-      acc += max_jerk * 0.02;
-      if (acc > max_acc) {
-        acc = max_acc;
-      }
-      vel += acc * 0.02;
+    if (vel < target_speed) {
+      vel += max_acc * 0.02;
       if (vel > target_speed) {
         vel = target_speed;
       }
-    } else if (target_speed < vel) {
-      acc -= max_jerk * 0.02;
-      if (acc < -max_acc) {
-        acc = -max_acc;
-      }
-      vel -= acc * 0.02;
+    } else if (vel > target_speed) {
+      vel -= max_acc * 0.02;
       if (vel < target_speed) {
         vel = target_speed;
       }
+    } else {
     }
-    std::cout << "vel," << vel << ",acc," << acc << std::endl;
 
     double N = (target_dist / (0.02 * vel));
     double x_point = x_add_on + (target_x) / N;
@@ -176,12 +170,13 @@ void Vehicle::compute_path(const vector<double> &previous_path_x,
 
     x_point = ref_x + (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
     y_point = ref_y + (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
+    std::cout << i << ",target," << target_speed << ",vel," << vel << ",acc," << acc << ",x," << x_point << ",y," << y_point << std::endl;
 
     path_x.push_back(x_point);
     path_y.push_back(y_point);
   }
-  for (int i = 0; i < path_x.size(); i++) {
-    std::cout << i << ",x," << path_x[i] << ",y," << path_y[i] << std::endl;
-  }
+  // for (int i = 0; i < path_x.size(); i++) {
+  //   std::cout << i << ",x," << path_x[i] << ",y," << path_y[i] << std::endl;
+  // }
 
 }
