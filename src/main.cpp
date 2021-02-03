@@ -122,6 +122,7 @@ int main() {
           std::cout.precision(10);
           my_vehicle.update_position(car_x, car_y, car_s, car_d, car_yaw, car_speed / 2.24, sensor_fusion);
           my_vehicle.update_state();
+          my_vehicle.update_action();
           my_vehicle.compute_path(previous_path_x, previous_path_y, next_x_vals, next_y_vals);
 
 

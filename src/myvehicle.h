@@ -25,6 +25,7 @@ private:
   double max_velocity;
   double max_acc;
   double max_jerk;
+  int target_lane;
 
   WayPointMap way_point_map;
   map<int, Vehicle> other_vehicles;
@@ -46,6 +47,7 @@ public:
                        double yaw, double speed,
                        const vector<vector<double> > &sensor_fusion);
   void update_state();
+  void update_action();
   void compute_path(const vector<double> &previous_path_x,
                     const vector<double> &previous_path_y,
                     vector<double> &path_x,
@@ -53,6 +55,10 @@ public:
 
   bool get_vehicle_ahead(Vehicle &vehicle);
   bool get_vehicle_behind(Vehicle &vehicle);
+  bool get_left_vehicle(Vehicle &vehicle);
+  bool get_right_vehicle(Vehicle &vehicle);
+
+  vector<double> get_lane_speed();
 };
 
 #endif // MY_VEHICLE_H

@@ -16,7 +16,7 @@ Vehicle::Vehicle() {
 }
 
 Vehicle::Vehicle(int id, double x, double y, double s, double d, double yaw, double speed) : Vehicle() {
-  //cout << "Vehicle," << id << "," << x << "," << y << "," << s << "," << d << "," << yaw << "," << speed << endl;
+  //cout << "Vehicle,id," << id << ",x," << x << ",y," << y << ",s," << s << ",d," << d << ",yaw," << yaw << ",speed," << speed << endl;
   this->id = id;
   this->x = x;
   this->y = y;
