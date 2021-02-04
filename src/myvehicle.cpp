@@ -12,7 +12,7 @@ using std::endl;
 MyVehicle::MyVehicle() : Vehicle() {
   lane_available = 3;
   max_velocity = 44 / 2.24;
-  max_acc = 9.5;
+  max_acc = 3;
   max_jerk = 9.5;
   target_speed = max_velocity;
   this->target_lane = 1;
@@ -98,17 +98,17 @@ void MyVehicle::update_state() {
     }
     cout << lane_speeds[0] << " " << lane_speeds[1] << " " << lane_speeds[2] << endl;
     cout << "self_lane: " << this->get_lane() << " max_lane: " << max_speed_lane << endl;
-    if (max_speed_lane < this->target_lane) {
+    if (max_speed_lane < this->target_lane && this->get_s() > keep_land_s + 30) {
       state = VehicleState::kPrepareLaneChangeLeft;
     }
-    if (max_speed_lane > this->target_lane) {
+    if (max_speed_lane > this->target_lane && this->get_s() > keep_land_s + 30) {
       state = VehicleState::kPrepareLaneChangeRight;
     }
   } else if (state == VehicleState::kPrepareLaneChangeLeft) {
     Vehicle left_vehicle;
     if (get_left_vehicle(left_vehicle)) {
-      if (this->get_s() > left_vehicle.get_s() + 20 ||
-          this->get_s() < left_vehicle.get_s() - 20)
+      if (this->get_s() > left_vehicle.get_s() + 10 ||
+          this->get_s() < left_vehicle.get_s() - 10)
       {
         state = VehicleState::kLaneChangeLeft;
       }
@@ -116,16 +116,18 @@ void MyVehicle::update_state() {
   } else if (state == VehicleState::kPrepareLaneChangeRight) {
     Vehicle right_vehicle;
     if (get_right_vehicle(right_vehicle)) {
-      if (this->get_s() > right_vehicle.get_s() + 20 ||
-          this->get_s() < right_vehicle.get_s() - 20)
+      if (this->get_s() > right_vehicle.get_s() + 10 ||
+          this->get_s() < right_vehicle.get_s() - 10)
       {
         state = VehicleState::kLaneChangeRight;
       }
     }
   } else if (state == VehicleState::kLaneChangeLeft) {
     state = VehicleState::kKeepLane;
+    keep_land_s = this->get_s();
   } else if (state == VehicleState::kLaneChangeRight) {
     state = VehicleState::kKeepLane;
+    keep_land_s = this->get_s();
   }
 
   if (state == VehicleState::kKeepLane) {
@@ -208,6 +210,7 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
 
     ref_speed = speed;
 
+    keep_land_s = this->get_s();
     target_lane = this->get_lane();
   } else {
     ref_x = previous_path_x[prev_size - 1];
@@ -240,7 +243,7 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
   y_for_spline.push_back(ref_y);
 
   vector<double> tempXY;
-  for (double step = 30.0; step < 91.0; step += 30.0) {
+  for (double step = 40.0; step < 121.0; step += 40.0) {
     tempXY = getXY(s + step, (2.0 + 4.0 * target_lane), way_point_map);
     x_for_spline.push_back(tempXY[0]);
     y_for_spline.push_back(tempXY[1]);
@@ -263,10 +266,6 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
     path_y.push_back(previous_path_y[i]);
   }
 
-  double target_x = 30.0;
-  double target_y = s(target_x);
-  double target_dist = sqrt(target_x * target_x + target_y * target_x);
-
   double x_add_on = 0;
   double y_add_on = 0;
 
@@ -288,7 +287,7 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
 
 
     double target_x = x_add_on + 0.02 * vel;
-    double target_y = y_add_on + s(target_x);
+    double target_y = s(target_x);
 
     double diff_x = target_x - x_add_on;
     double diff_y = target_y - y_add_on;
@@ -297,7 +296,7 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
     double ratio = diff_x / base;
 
     target_x = x_add_on + 0.02 * vel * ratio;
-    target_y = y_add_on + s(target_x);
+    target_y = s(target_x);
 
     double x_point = target_x;
     double y_point = s(x_point);
@@ -362,7 +361,7 @@ bool MyVehicle::get_left_vehicle(Vehicle &vehicle)
   if (this->get_lane() > 0) {
     for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
       if (it->second.get_lane() == (this->get_lane() - 1) &&
-          it->second.get_s() > this->get_s() + 20) {
+          it->second.get_s() > this->get_s() - 20) {
         if (min_s < 0 || it->second.get_s() < min_s) {
           min_s = it->second.get_s();
           vehicle = it->second;
@@ -380,7 +379,7 @@ bool MyVehicle::get_right_vehicle(Vehicle &vehicle)
   if (this->get_lane() < lane_available) {
     for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
       if (it->second.get_lane() == (this->get_lane() + 1) &&
-          it->second.get_s() > this->get_s() + 20) {
+          it->second.get_s() > this->get_s() - 20) {
         if (min_s < 0 || it->second.get_s() < min_s) {
           min_s = it->second.get_s();
           vehicle = it->second;

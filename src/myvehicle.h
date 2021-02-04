@@ -33,6 +33,7 @@ private:
   VehicleState state;
   double acc;
 
+  double keep_land_s;
   double target_speed;
 
 public:
