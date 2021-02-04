@@ -268,6 +268,7 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
   double target_dist = sqrt(target_x * target_x + target_y * target_x);
 
   double x_add_on = 0;
+  double y_add_on = 0;
 
   double vel = ref_speed;
   // std::cout << "init vel," << vel << ",init acc," << acc << std::endl;
@@ -285,10 +286,23 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
     } else {
     }
 
-    double N = (target_dist / (0.02 * vel));
-    double x_point = x_add_on + (target_x) / N;
+
+    double target_x = x_add_on + 0.02 * vel;
+    double target_y = y_add_on + s(target_x);
+
+    double diff_x = target_x - x_add_on;
+    double diff_y = target_y - y_add_on;
+
+    double base = sqrt(diff_x * diff_x + diff_y * diff_y);
+    double ratio = diff_x / base;
+
+    target_x = x_add_on + 0.02 * vel * ratio;
+    target_y = y_add_on + s(target_x);
+
+    double x_point = target_x;
     double y_point = s(x_point);
     x_add_on = x_point;
+    y_add_on = y_point;
 
     double x_ref = x_point;
     double y_ref = y_point;
@@ -299,10 +313,11 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
 
     path_x.push_back(x_point);
     path_y.push_back(y_point);
+    std::cout << "Running," << i << ",x," << x_point << ",y," << y_point << std::endl;
   }
-  // for (int i = 0; i < path_x.size(); i++) {
-  //   std::cout << i << ",x," << path_x[i] << ",y," << path_y[i] << std::endl;
-  // }
+  for (int i = 0; i < path_x.size(); i++) {
+    std::cout << "RunningAll," << i << ",x," << path_x[i] << ",y," << path_y[i] << std::endl;
+  }
 
 }
 
