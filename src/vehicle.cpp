@@ -33,6 +33,10 @@ int Vehicle::get_lane() {
   return (int) (this->d / this->lane_width);
 }
 
+int Vehicle::get_id() {
+  return id;
+}
+
 double Vehicle::get_x() {
   return x;
 }
@@ -49,6 +53,21 @@ double Vehicle::get_d() {
   return d;
 }
 
+double Vehicle::get_yaw() {
+  return yaw;
+}
+
 double Vehicle::get_speed() {
   return speed;
+}
+
+double Vehicle::get_s_diff(Vehicle &vehicle, double extra_offset) {
+  double offset = this->get_s() - vehicle.get_s() + extra_offset;
+  if (offset > MAX_S / 2) {
+    offset = offset - MAX_S;
+  }
+  if (offset < -MAX_S / 2) {
+    offset = offset + MAX_S;
+  }
+  return offset;
 }

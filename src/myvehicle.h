@@ -31,6 +31,7 @@ private:
   map<int, Vehicle> other_vehicles;
 
   VehicleState state;
+  VehicleState last_state;
   double acc;
 
   double keep_land_s;
@@ -56,10 +57,16 @@ public:
 
   bool get_vehicle_ahead(Vehicle &vehicle);
   bool get_vehicle_behind(Vehicle &vehicle);
-  bool get_left_vehicle(Vehicle &vehicle);
-  bool get_right_vehicle(Vehicle &vehicle);
+  bool get_left_vehicles(vector<Vehicle> &vehicles);
+  bool get_right_vehicles(vector<Vehicle> &vehicles);
+  bool can_change_lane(vector<Vehicle> &vehicles);
 
-  vector<double> get_lane_speed();
+  void get_vehicles_ahead(vector<Vehicle> &vehicles);
+  int get_optimal_lane();
+
+  double compute_curr_speed();
+
+  void dump(vector<Vehicle> &left_vehicles, vector<Vehicle> &right_vehicles);
 };
 
 #endif // MY_VEHICLE_H

@@ -1,6 +1,8 @@
 #ifndef VEHICLE_H
 #define VEHICLE_H
 
+#define MAX_S 6945.554
+
 class Vehicle
 {
 protected:
@@ -18,11 +20,16 @@ public:
   virtual ~Vehicle();
 
   int get_lane();
+  int get_id();
   double get_x();
   double get_y();
   double get_s();
   double get_d();
   double get_speed();
+  double get_yaw();
+
+  double get_s_diff(Vehicle &Vehicle, double extra_offset);
+
 
 };
 

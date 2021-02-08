@@ -9,9 +9,11 @@ using std::map;
 using std::cout;
 using std::endl;
 
+#define CHANGE_LANE_DIST 70.0
+
 MyVehicle::MyVehicle() : Vehicle() {
   lane_available = 3;
-  max_velocity = 44 / 2.24;
+  max_velocity = 48.5 / 2.24;
   max_acc = 3;
   max_jerk = 9.5;
   target_speed = max_velocity;
@@ -80,45 +82,80 @@ void MyVehicle::update_position(double x, double y,
                                                sqrt(sensor_fusion_vx * sensor_fusion_vx + sensor_fusion_vy * sensor_fusion_vy));
   }
   // std::cout << "other_vehicles,size," << other_vehicles.size() << std::endl;
-  std::cout << "update,x," << x << ",y," << y << ",s," << s << ",d," << d << ",yaw," << yaw << ",speed," << speed << std::endl;
+  // std::cout << "update_position,x," << x << ",y," << y << ",s," << s << ",d," << d << ",yaw," << yaw << ",speed," << speed << std::endl;
+}
+
+bool MyVehicle::can_change_lane(vector<Vehicle> &vehicles) {
+  for (int i = 0; i < vehicles.size(); i++) {
+    double behind_speed_diff = vehicles[i].get_speed() - this->get_speed();
+    double ahead_speed_diff = this->get_speed() - vehicles[i].get_speed();
+    if (behind_speed_diff < 0) {
+      behind_speed_diff = 0;
+    }
+    if (ahead_speed_diff < 0) {
+      ahead_speed_diff = 0;
+    }
+    if (this->get_s_diff(vehicles[i], -10 - behind_speed_diff * 3) < 0 &&  //car behind
+        this->get_s_diff(vehicles[i], 25 + ahead_speed_diff * 3) > 0) //car ahead
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 void MyVehicle::update_state() {
   Vehicle vehicle;
 
+  vector<Vehicle> left_vehicles;
+  vector<Vehicle> right_vehicles;
+
   if (state == VehicleState::kKeepLane) {
-    vector<double> lane_speeds = get_lane_speed();
-    int max_speed_lane = this->target_lane;
-    double max_speed = lane_speeds[max_speed_lane];
-    for (int i = 0; i < lane_speeds.size(); i++) {
-      if (lane_speeds[i] > max_speed + 0.001) {
-        max_speed = lane_speeds[i];
-        max_speed_lane = i;
+    int optimal_lane = get_optimal_lane();
+    // cout << "self_lane: " << this->get_lane() << " max_lane: " << optimal_lane << endl;
+    Vehicle zero_vehicle;
+    if (this->get_s_diff(zero_vehicle, -(keep_land_s + CHANGE_LANE_DIST)) > 0) {
+      // cout << "can change lane." << endl;
+      if (optimal_lane < this->target_lane) {
+        state = VehicleState::kPrepareLaneChangeLeft;
+      }
+      if (optimal_lane > this->target_lane) {
+        state = VehicleState::kPrepareLaneChangeRight;
       }
     }
-    cout << lane_speeds[0] << " " << lane_speeds[1] << " " << lane_speeds[2] << endl;
-    cout << "self_lane: " << this->get_lane() << " max_lane: " << max_speed_lane << endl;
-    if (max_speed_lane < this->target_lane && this->get_s() > keep_land_s + 30) {
-      state = VehicleState::kPrepareLaneChangeLeft;
-    }
-    if (max_speed_lane > this->target_lane && this->get_s() > keep_land_s + 30) {
-      state = VehicleState::kPrepareLaneChangeRight;
-    }
   } else if (state == VehicleState::kPrepareLaneChangeLeft) {
-    Vehicle left_vehicle;
-    if (get_left_vehicle(left_vehicle)) {
-      if (this->get_s() > left_vehicle.get_s() + 10 ||
-          this->get_s() < left_vehicle.get_s() - 10)
-      {
+    int optimal_lane = get_optimal_lane();
+    // cout << "self_lane: " << this->get_lane() << " max_lane: " << max_speed_lane << endl;
+    Vehicle zero_vehicle;
+    if (optimal_lane == this->target_lane) {
+      state = VehicleState::kKeepLane;
+    } else {
+      bool change = true;
+      if (get_left_vehicles(left_vehicles)) {
+        change = can_change_lane(left_vehicles);
+      }
+      if (fabs(get_speed() - target_speed) > 3) {
+        change = false;
+      }
+      if (change) {
         state = VehicleState::kLaneChangeLeft;
       }
     }
   } else if (state == VehicleState::kPrepareLaneChangeRight) {
-    Vehicle right_vehicle;
-    if (get_right_vehicle(right_vehicle)) {
-      if (this->get_s() > right_vehicle.get_s() + 10 ||
-          this->get_s() < right_vehicle.get_s() - 10)
-      {
+    int optimal_lane = get_optimal_lane();
+    // cout << "self_lane: " << this->get_lane() << " max_lane: " << max_speed_lane << endl;
+    Vehicle zero_vehicle;
+    if (optimal_lane == this->target_lane) {
+      state = VehicleState::kKeepLane;
+    } else {
+      bool change = true;
+      if (get_right_vehicles(right_vehicles)) {
+        change = can_change_lane(right_vehicles);
+      }
+      if (fabs(get_speed() - target_speed) > 3) {
+        change = false;
+      }
+      if (change) {
         state = VehicleState::kLaneChangeRight;
       }
     }
@@ -129,62 +166,50 @@ void MyVehicle::update_state() {
     state = VehicleState::kKeepLane;
     keep_land_s = this->get_s();
   }
-
-  if (state == VehicleState::kKeepLane) {
-    cout << "VehicleState::kKeepLane" << endl;
-  } else if (state == VehicleState::kLaneChangeLeft) {
-    cout << "VehicleState::kLaneChangeLeft" << endl;
-  } else if (state == VehicleState::kLaneChangeRight) {
-    cout << "VehicleState::kLaneChangeRight" << endl;
-  } else if (state == VehicleState::kPrepareLaneChangeLeft) {
-    cout << "VehicleState::kPrepareLaneChangeLeft" << endl;
-  } else if (state == VehicleState::kPrepareLaneChangeRight) {
-    cout << "VehicleState::kPrepareLaneChangeRight" << endl;
+  if (last_state != state) {
+    dump(left_vehicles, right_vehicles);
   }
+  last_state = state;
+}
+
+double MyVehicle::compute_curr_speed() {
+  Vehicle vehicle_ahead;
+  Vehicle vehicle_behind;
+  double target_speed = max_velocity;
+  double speed_ahead = target_speed;
+  double speed_behind = 0;
+  if (get_vehicle_ahead(vehicle_ahead)) {
+    // cout << "get_vehicle_ahead," << vehicle_ahead.get_speed() << endl;
+    if (vehicle_ahead.get_s_diff(*this, -this->get_speed() * 1.5) < 0) {
+      speed_ahead = vehicle_ahead.get_speed() - 1.0;
+    }
+  }
+  if (get_vehicle_behind(vehicle_behind)) {
+    if (this->get_s_diff(vehicle_behind, -vehicle_behind.get_speed() * 1) < 0) {
+      speed_behind = vehicle_behind.get_speed();
+    }
+  }
+  if (speed_ahead > speed_behind) {
+    target_speed = speed_ahead;
+  } else {
+    target_speed = (speed_ahead + speed_behind) / 2;
+  }
+
+  return target_speed;
 }
 
 void MyVehicle::update_action() {
+  acc = max_acc;
   if (state == VehicleState::kKeepLane) {
-    Vehicle vehicle_ahead;
-    target_speed = max_velocity;
-    if (get_vehicle_ahead(vehicle_ahead))
-    {
-      cout << "get_vehicle_ahead," << vehicle_ahead.get_speed() << endl;
-      if (vehicle_ahead.get_s() - this->get_s() < this->get_speed() * 3)
-      {
-        target_speed = vehicle_ahead.get_speed();
-      }
-    }
+    target_speed = compute_curr_speed();
   } else if (state == VehicleState::kLaneChangeLeft) {
     this->target_lane = this->target_lane - 1;
   } else if (state == VehicleState::kLaneChangeRight) {
     this->target_lane = this->target_lane + 1;
   } else if (state == VehicleState::kPrepareLaneChangeLeft) {
-    Vehicle vehicle_ahead;
-    Vehicle vehicle_behind;
-    Vehicle left_vehicle;
-    target_speed = max_velocity;
-    if (get_vehicle_ahead(vehicle_ahead))
-    {
-      cout << "get_vehicle_ahead," << vehicle_ahead.get_speed() << endl;
-      if (vehicle_ahead.get_s() - this->get_s() < this->get_speed() * 3)
-      {
-        target_speed = vehicle_ahead.get_speed();
-      }
-    }
+    target_speed = compute_curr_speed();
   } else if (state == VehicleState::kPrepareLaneChangeRight) {
-    Vehicle vehicle_ahead;
-    Vehicle vehicle_behind;
-    Vehicle right_vehicle;
-    target_speed = max_velocity;
-    if (get_vehicle_ahead(vehicle_ahead))
-    {
-      cout << "get_vehicle_ahead," << vehicle_ahead.get_speed() << endl;
-      if (vehicle_ahead.get_s() - this->get_s() < this->get_speed() * 3)
-      {
-        target_speed = vehicle_ahead.get_speed();
-      }
-    }
+    target_speed = compute_curr_speed();
   }
 }
 
@@ -242,9 +267,47 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
   x_for_spline.push_back(ref_x);
   y_for_spline.push_back(ref_y);
 
+  vector<double> tempSD;
   vector<double> tempXY;
-  for (double step = 40.0; step < 121.0; step += 40.0) {
+  double start_change = target_speed * 2.5;
+
+  tempSD = getFrenet(ref_x, ref_y, ref_yaw, way_point_map);
+
+  //cout << "ref," << ref_x << "," << ref_y << endl;
+  //cout << "s + start_change," << s + start_change << endl;
+  //cout << "tempSD," << tempSD[0] << "," << tempSD[1] << endl;
+  // if (s + start_change > MAX_S) {
+  //   if (tempSD[0] < MAX_S / 2) {
+  //     tempSD[0] = tempSD[0] + MAX_S;
+  //   }
+  // }
+  // tempSD[0] = (tempSD[0] + s + start_change) / 2;
+  // tempSD[1] = (tempSD[1] + 2.0 + 4.0 * target_lane) / 2;
+  // Vehicle zero_vehicle;
+  // if (this->get_s_diff(zero_vehicle, -(keep_land_s + CHANGE_LANE_DIST)) > 0)
+  // {
+  //   tempSD[1] = 2.0 + 4.0 * target_lane;
+  // }
+  //cout << "tempSD," << tempSD[0] << "," << tempSD[1] << endl;
+  // tempXY = getXY(tempSD[0], tempSD[1], way_point_map);
+  //cout << "tempXY," << tempXY[0] << "," << tempXY[1] << endl;
+  // x_for_spline.push_back(tempXY[0]);
+  // y_for_spline.push_back(tempXY[1]);
+  if (start_change < 40) {
+    start_change = 40;
+  }
+  if (target_lane == get_lane()) {
+    start_change = target_speed * 1.5;
+    if (start_change < 30) {
+      start_change = 30;
+    }
+  }
+  // cout << "start_change" << start_change << endl;
+
+  for (double step = start_change; step < start_change + 30.0 * 2 + 1; step += 30.0) {
+    //cout << "LoopSD," << s + step << "," << (2.0 + 4.0 * target_lane) << endl;
     tempXY = getXY(s + step, (2.0 + 4.0 * target_lane), way_point_map);
+    //cout << "LoopTempXY," << tempXY[0] << "," << tempXY[1] << endl;
     x_for_spline.push_back(tempXY[0]);
     y_for_spline.push_back(tempXY[1]);
   }
@@ -273,12 +336,12 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
   // std::cout << "init vel," << vel << ",init acc," << acc << std::endl;
   for (int i = 1; i <= 50 - previous_path_x.size(); i++) {
     if (vel < target_speed) {
-      vel += max_acc * 0.02;
+      vel += acc * 0.02;
       if (vel > target_speed) {
         vel = target_speed;
       }
     } else if (vel > target_speed) {
-      vel -= max_acc * 0.02;
+      vel -= acc * 0.02;
       if (vel < target_speed) {
         vel = target_speed;
       }
@@ -312,23 +375,27 @@ void MyVehicle::compute_path(const vector<double> &previous_path_x, const vector
 
     path_x.push_back(x_point);
     path_y.push_back(y_point);
-    std::cout << "Running," << i << ",x," << x_point << ",y," << y_point << std::endl;
+    // std::cout << "Running," << i << ",x," << x_point << ",y," << y_point << std::endl;
   }
-  for (int i = 0; i < path_x.size(); i++) {
-    std::cout << "RunningAll," << i << ",x," << path_x[i] << ",y," << path_y[i] << std::endl;
-  }
+  // for (int i = 0; i < path_x.size(); i++) {
+  //   std::cout << "RunningAll," << i << ",x," << path_x[i] << ",y," << path_y[i] << std::endl;
+  // }
 
 }
 
 bool MyVehicle::get_vehicle_ahead(Vehicle &vehicle)
 {
   bool vehicle_found = false;
+  bool first = true;
   double min_s = -1;
   for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-    if (it->second.get_lane() == this->get_lane() &&
-        it->second.get_s() > this->get_s()) {
-      if (min_s < 0 || it->second.get_s() < min_s) {
-        min_s = it->second.get_s();
+    if (fabs(it->second.get_d() - this->get_d()) < 3.0 &&
+        it->second.get_s_diff(*this, 0) > 0) {
+      Vehicle zero_vehicle;
+      double s = it->second.get_s_diff(*this, 0);
+      if (first || s < min_s) {
+        first = false;
+        min_s = s;
         vehicle = it->second;
         vehicle_found = true;
       }
@@ -340,12 +407,16 @@ bool MyVehicle::get_vehicle_ahead(Vehicle &vehicle)
 bool MyVehicle::get_vehicle_behind(Vehicle &vehicle)
 {
   bool vehicle_found = false;
+  bool first = true;
   double max_s = -1;
   for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
     if (it->second.get_lane() == this->get_lane() &&
-        it->second.get_s() < this->get_s()) {
-      if (max_s < 0 || it->second.get_s() > max_s) {
-        max_s = it->second.get_s();
+        it->second.get_s_diff(*this, 0) < 0) {
+      Vehicle zero_vehicle;
+      double s = it->second.get_s_diff(*this, 0);
+      if (first || s > max_s) {
+        first = false;
+        max_s = s;
         vehicle = it->second;
         vehicle_found = true;
       }
@@ -354,59 +425,152 @@ bool MyVehicle::get_vehicle_behind(Vehicle &vehicle)
   return vehicle_found;
 }
 
-bool MyVehicle::get_left_vehicle(Vehicle &vehicle)
+bool MyVehicle::get_left_vehicles(vector<Vehicle> &vehicles)
 {
   bool vehicle_found = false;
-  double min_s = -1;
+  vehicles.clear();
   if (this->get_lane() > 0) {
     for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-      if (it->second.get_lane() == (this->get_lane() - 1) &&
-          it->second.get_s() > this->get_s() - 20) {
-        if (min_s < 0 || it->second.get_s() < min_s) {
-          min_s = it->second.get_s();
-          vehicle = it->second;
-          vehicle_found = true;
-        }
+      if (it->second.get_lane() == (this->get_lane() - 1)) {
+        vehicles.push_back(it->second);
+        vehicle_found = true;
       }
     }
   }
   return vehicle_found;
 }
-bool MyVehicle::get_right_vehicle(Vehicle &vehicle)
-{
+bool MyVehicle::get_right_vehicles(vector<Vehicle> &vehicles) {
   bool vehicle_found = false;
-  double min_s = -1;
+  vehicles.clear();
   if (this->get_lane() < lane_available) {
     for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-      if (it->second.get_lane() == (this->get_lane() + 1) &&
-          it->second.get_s() > this->get_s() - 20) {
-        if (min_s < 0 || it->second.get_s() < min_s) {
-          min_s = it->second.get_s();
-          vehicle = it->second;
-          vehicle_found = true;
-        }
+      if (it->second.get_lane() == (this->get_lane() + 1)) {
+        vehicles.push_back(it->second);
+        vehicle_found = true;
       }
     }
   }
   return vehicle_found;
 }
 
-vector<double> MyVehicle::get_lane_speed()
-{
-  vector<double> lane_speeds;
-  lane_speeds.resize(lane_available);
-  for (int i = 0; i < lane_speeds.size(); i++) {
-    lane_speeds[i] = max_velocity;
+void MyVehicle::get_vehicles_ahead(vector<Vehicle> &vehicles) {
+  vehicles.resize(lane_available);
+  for (int i = 0; i < vehicles.size(); i++) {
+    vehicles[i] = Vehicle();
   }
   for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-    if (0 <= it->second.get_lane() && it->second.get_lane() < lane_speeds.size()) {
-      if (it->second.get_s() > this->get_s()) {
-        if (it->second.get_speed() < lane_speeds[it->second.get_lane()]) {
-          lane_speeds[it->second.get_lane()] = it->second.get_speed();
+    if (0 <= it->second.get_lane() && it->second.get_lane() < vehicles.size()) {
+      if (it->second.get_s_diff(*this, 0) > 0) {
+        if (vehicles[it->second.get_lane()].get_id() == -1 ||
+            it->second.get_s_diff(vehicles[it->second.get_lane()], 0) < 0) {
+          vehicles[it->second.get_lane()] = it->second;
         }
       }
     }
   }
+}
 
-  return lane_speeds;
+int MyVehicle::get_optimal_lane() {
+  vector<Vehicle> vehicles;
+  get_vehicles_ahead(vehicles);
+
+  int optimal_lane = this->target_lane;
+  Vehicle max_vehicle = vehicles[optimal_lane];
+
+  for (int i = 0; i < vehicles.size() && max_vehicle.get_id() != -1; i++) {
+    double dist = vehicles[i].get_s_diff(max_vehicle, 0);
+    if (vehicles[i].get_id() == -1 || 0 < dist) {
+      max_vehicle = vehicles[i];
+      optimal_lane = i;
+    }
+  }
+  cout << "Optimal vehicle" << endl;
+  for (int i = 0; i < vehicles.size(); i++) {
+    cout << "ID," << vehicles[i].get_id();
+    cout << ",X," << vehicles[i].get_x();
+    cout << ",Y," << vehicles[i].get_y();
+    cout << ",S," << vehicles[i].get_s();
+    cout << ",D," << vehicles[i].get_d();
+    cout << ",Speed," << vehicles[i].get_speed();
+    cout << ",Yaw," << vehicles[i].get_yaw();
+    cout << ",Lane," << vehicles[i].get_lane();
+    cout << endl;
+  }
+  cout << "Optimal lane: " << optimal_lane << endl;
+  return optimal_lane;
+}
+
+void MyVehicle::dump(vector<Vehicle> &left_vehicles, vector<Vehicle> &right_vehicles)
+{
+  cout << "************************" << endl;
+  time_t now = time(0);
+  struct tm tstruct;
+  char buf[80];
+  tstruct = *localtime(&now);
+  strftime(buf, sizeof(buf), "%H,%M,%S", &tstruct);
+
+  cout << "Time," << buf << endl;
+  cout << "My vehicle" << endl;
+  cout << "ID," << get_id();
+  cout << ",X," << get_x();
+  cout << ",Y," << get_y();
+  cout << ",S," << get_s();
+  cout << ",D," << get_d();
+  cout << ",Speed," << get_speed();
+  cout << ",Yaw," << get_yaw();
+  cout << ",Lane," << get_lane();
+  cout << endl;
+
+  if (state == VehicleState::kKeepLane) {
+    cout << "VehicleState::kKeepLane";
+  } else if (state == VehicleState::kLaneChangeLeft) {
+    cout << "VehicleState::kLaneChangeLeft";
+  } else if (state == VehicleState::kLaneChangeRight) {
+    cout << "VehicleState::kLaneChangeRight";
+  } else if (state == VehicleState::kPrepareLaneChangeLeft) {
+    cout << "VehicleState::kPrepareLaneChangeLeft";
+  } else if (state == VehicleState::kPrepareLaneChangeRight) {
+    cout << "VehicleState::kPrepareLaneChangeRight";
+  }
+  cout << endl;
+
+  cout << "Other vehicles" << endl;
+  for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
+    cout << "ID," << it->second.get_id();
+    cout << ",X," << it->second.get_x();
+    cout << ",Y," << it->second.get_y();
+    cout << ",S," << it->second.get_s();
+    cout << ",D," << it->second.get_d();
+    cout << ",Speed," << it->second.get_speed();
+    cout << ",Yaw," << it->second.get_yaw();
+    cout << ",Lane," << it->second.get_lane();
+    cout << endl;
+  }
+
+  cout << "Left vehicles" << endl;
+  for (int i = 0; i < left_vehicles.size(); i++) {
+    cout << "ID," << left_vehicles[i].get_id();
+    cout << ",X," << left_vehicles[i].get_x();
+    cout << ",Y," << left_vehicles[i].get_y();
+    cout << ",S," << left_vehicles[i].get_s();
+    cout << ",D," << left_vehicles[i].get_d();
+    cout << ",Speed," << left_vehicles[i].get_speed();
+    cout << ",Yaw," << left_vehicles[i].get_yaw();
+    cout << ",Lane," << left_vehicles[i].get_lane();
+    cout << endl;
+  }
+
+  cout << "Right vehicles" << endl;
+  for (int i = 0; i < right_vehicles.size(); i++) {
+    cout << "ID," << right_vehicles[i].get_id();
+    cout << ",X," << right_vehicles[i].get_x();
+    cout << ",Y," << right_vehicles[i].get_y();
+    cout << ",S," << right_vehicles[i].get_s();
+    cout << ",D," << right_vehicles[i].get_d();
+    cout << ",Speed," << right_vehicles[i].get_speed();
+    cout << ",Yaw," << right_vehicles[i].get_yaw();
+    cout << ",Lane," << right_vehicles[i].get_lane();
+    cout << endl;
+  }
+  cout << "------------------------" << endl;
 }

@@ -69,8 +69,8 @@ int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x,
 }
 
 // Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-vector<double> getFrenet(double x, double y, double theta, 
-                         const vector<double> &maps_x, 
+vector<double> getFrenet(double x, double y, double theta,
+                         const vector<double> &maps_x,
                          const vector<double> &maps_y) {
   int next_wp = NextWaypoint(x,y, theta, maps_x,maps_y);
 
@@ -106,6 +106,50 @@ vector<double> getFrenet(double x, double y, double theta,
   double frenet_s = 0;
   for (int i = 0; i < prev_wp; ++i) {
     frenet_s += distance(maps_x[i],maps_y[i],maps_x[i+1],maps_y[i+1]);
+  }
+
+  frenet_s += distance(0,0,proj_x,proj_y);
+
+  return {frenet_s,frenet_d};
+}
+
+// Transform from Cartesian x,y coordinates to Frenet s,d coordinates
+vector<double> getFrenet(double x, double y, double theta,
+                         const WayPointMap &way_point_map) {
+  int next_wp = NextWaypoint(x,y, theta, way_point_map.map_waypoints_x, way_point_map.map_waypoints_y);
+
+  int prev_wp;
+  prev_wp = next_wp-1;
+  if (next_wp == 0) {
+    prev_wp  = way_point_map.map_waypoints_x.size()-1;
+  }
+
+  double n_x = way_point_map.map_waypoints_x[next_wp]-way_point_map.map_waypoints_x[prev_wp];
+  double n_y = way_point_map.map_waypoints_y[next_wp]-way_point_map.map_waypoints_y[prev_wp];
+  double x_x = x - way_point_map.map_waypoints_x[prev_wp];
+  double x_y = y - way_point_map.map_waypoints_y[prev_wp];
+
+  // find the projection of x onto n
+  double proj_norm = (x_x*n_x+x_y*n_y)/(n_x*n_x+n_y*n_y);
+  double proj_x = proj_norm*n_x;
+  double proj_y = proj_norm*n_y;
+
+  double frenet_d = distance(x_x,x_y,proj_x,proj_y);
+
+  //see if d value is positive or negative by comparing it to a center point
+  double center_x = 1000-way_point_map.map_waypoints_x[prev_wp];
+  double center_y = 2000-way_point_map.map_waypoints_y[prev_wp];
+  double centerToPos = distance(center_x,center_y,x_x,x_y);
+  double centerToRef = distance(center_x,center_y,proj_x,proj_y);
+
+  if (centerToPos <= centerToRef) {
+    frenet_d *= -1;
+  }
+
+  // calculate s value
+  double frenet_s = 0;
+  for (int i = 0; i < prev_wp; ++i) {
+    frenet_s += distance(way_point_map.map_waypoints_x[i],way_point_map.map_waypoints_y[i],way_point_map.map_waypoints_x[i+1],way_point_map.map_waypoints_y[i+1]);
   }
 
   frenet_s += distance(0,0,proj_x,proj_y);
