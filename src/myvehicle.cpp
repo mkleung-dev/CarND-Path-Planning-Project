@@ -95,8 +95,8 @@ bool MyVehicle::can_change_lane(vector<Vehicle> &vehicles) {
     if (ahead_speed_diff < 0) {
       ahead_speed_diff = 0;
     }
-    if (this->get_s_diff(vehicles[i], -10 - behind_speed_diff * 3) < 0 &&  //car behind
-        this->get_s_diff(vehicles[i], 25 + ahead_speed_diff * 3) > 0) //car ahead
+    if (this->get_s_diff(vehicles[i], -5 - vehicles[i].get_speed() * 1.0) < 0 &&  //car behind
+        this->get_s_diff(vehicles[i], 5 + this->get_speed() * 1.0) > 0) //car ahead
     {
       return false;
     }
@@ -166,9 +166,9 @@ void MyVehicle::update_state() {
     state = VehicleState::kKeepLane;
     keep_land_s = this->get_s();
   }
-  if (last_state != state) {
-    dump(left_vehicles, right_vehicles);
-  }
+  // if (last_state != state) {
+    // dump(left_vehicles, right_vehicles);
+  // }
   last_state = state;
 }
 
@@ -180,12 +180,13 @@ double MyVehicle::compute_curr_speed() {
   double speed_behind = 0;
   if (get_vehicle_ahead(vehicle_ahead)) {
     // cout << "get_vehicle_ahead," << vehicle_ahead.get_speed() << endl;
-    if (vehicle_ahead.get_s_diff(*this, -this->get_speed() * 1.5) < 0) {
-      speed_ahead = vehicle_ahead.get_speed() - 1.0;
+    double ahead_speed_diff = vehicle_ahead.get_speed() - this->get_speed();
+    if (vehicle_ahead.get_s_diff(*this, -15 - this->get_speed() * 1.0) < 0) {
+      speed_ahead = vehicle_ahead.get_speed() - 2.0;
     }
   }
   if (get_vehicle_behind(vehicle_behind)) {
-    if (this->get_s_diff(vehicle_behind, -vehicle_behind.get_speed() * 1) < 0) {
+    if (this->get_s_diff(vehicle_behind, -5 - vehicle_behind.get_speed() * 1.0) < 0) {
       speed_behind = vehicle_behind.get_speed();
     }
   }
@@ -389,14 +390,13 @@ bool MyVehicle::get_vehicle_ahead(Vehicle &vehicle)
   bool first = true;
   double min_s = -1;
   for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-    if (fabs(it->second.get_d() - this->get_d()) < 3.0 &&
-        it->second.get_s_diff(*this, 0) > 0) {
-      Vehicle zero_vehicle;
-      double s = it->second.get_s_diff(*this, 0);
+    Vehicle currVehicle = it->second;
+    double s = currVehicle.get_s_diff(*this, 0);
+    if (fabs(currVehicle.get_d() - this->get_d()) < 3.0 && s > 0) {
       if (first || s < min_s) {
         first = false;
         min_s = s;
-        vehicle = it->second;
+        vehicle = currVehicle;
         vehicle_found = true;
       }
     }
@@ -410,14 +410,13 @@ bool MyVehicle::get_vehicle_behind(Vehicle &vehicle)
   bool first = true;
   double max_s = -1;
   for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-    if (it->second.get_lane() == this->get_lane() &&
-        it->second.get_s_diff(*this, 0) < 0) {
-      Vehicle zero_vehicle;
-      double s = it->second.get_s_diff(*this, 0);
+    Vehicle currVehicle = it->second;
+    double s = currVehicle.get_s_diff(*this, 0);
+    if (fabs(currVehicle.get_d() - this->get_d()) < 3.0 && s < 0) {
       if (first || s > max_s) {
         first = false;
         max_s = s;
-        vehicle = it->second;
+        vehicle = currVehicle;
         vehicle_found = true;
       }
     }
@@ -431,7 +430,8 @@ bool MyVehicle::get_left_vehicles(vector<Vehicle> &vehicles)
   vehicles.clear();
   if (this->get_lane() > 0) {
     for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-      if (it->second.get_lane() == (this->get_lane() - 1)) {
+      Vehicle vehicle = it->second;
+      if (fabs(vehicle.get_d() - (2 + 4 * (this->get_lane() - 1))) < 3.0) {
         vehicles.push_back(it->second);
         vehicle_found = true;
       }
@@ -442,10 +442,11 @@ bool MyVehicle::get_left_vehicles(vector<Vehicle> &vehicles)
 bool MyVehicle::get_right_vehicles(vector<Vehicle> &vehicles) {
   bool vehicle_found = false;
   vehicles.clear();
-  if (this->get_lane() < lane_available) {
+  if (this->get_lane() < lane_available - 1) {
     for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-      if (it->second.get_lane() == (this->get_lane() + 1)) {
-        vehicles.push_back(it->second);
+      Vehicle vehicle = it->second;
+      if (fabs(vehicle.get_d() - (2 + 4 * (this->get_lane() + 1))) < 3) {
+        vehicles.push_back(vehicle);
         vehicle_found = true;
       }
     }
@@ -459,11 +460,12 @@ void MyVehicle::get_vehicles_ahead(vector<Vehicle> &vehicles) {
     vehicles[i] = Vehicle();
   }
   for (map<int, Vehicle>::iterator it = other_vehicles.begin(); it != other_vehicles.end(); it++) {
-    if (0 <= it->second.get_lane() && it->second.get_lane() < vehicles.size()) {
-      if (it->second.get_s_diff(*this, 0) > 0) {
-        if (vehicles[it->second.get_lane()].get_id() == -1 ||
-            it->second.get_s_diff(vehicles[it->second.get_lane()], 0) < 0) {
-          vehicles[it->second.get_lane()] = it->second;
+    Vehicle vehicle = it->second;
+    int lane = vehicle.get_lane();
+    if (0 <= lane && lane < vehicles.size()) {
+      if (vehicle.get_s_diff(*this, 0) > 0) {
+        if (vehicles[lane].get_id() == -1 || vehicle.get_s_diff(vehicles[lane], 0) < 0) {
+          vehicles[lane] = vehicle;
         }
       }
     }
@@ -477,26 +479,40 @@ int MyVehicle::get_optimal_lane() {
   int optimal_lane = this->target_lane;
   Vehicle max_vehicle = vehicles[optimal_lane];
 
-  for (int i = 0; i < vehicles.size() && max_vehicle.get_id() != -1; i++) {
-    double dist = vehicles[i].get_s_diff(max_vehicle, 0);
-    if (vehicles[i].get_id() == -1 || 0 < dist) {
-      max_vehicle = vehicles[i];
-      optimal_lane = i;
+  if (max_vehicle.get_id() != -1) {
+    for (int i = 0; i < vehicles.size(); i++) {
+      if (vehicles[i].get_id() == -1) {
+        if (max_vehicle.get_id() == -1) {
+          if (abs(this->target_lane - vehicles[i].get_lane()) < abs(this->target_lane - max_vehicle.get_lane())) {
+            max_vehicle = vehicles[i];
+            optimal_lane = i;
+          }
+        } else {
+          max_vehicle = vehicles[i];
+          optimal_lane = i;
+        }
+      } else if (max_vehicle.get_id() != -1) {
+        double dist = vehicles[i].get_s_diff(max_vehicle, 0);
+        if (dist > 0) {
+          max_vehicle = vehicles[i];
+          optimal_lane = i;
+        }
+      }
     }
   }
-  cout << "Optimal vehicle" << endl;
-  for (int i = 0; i < vehicles.size(); i++) {
-    cout << "ID," << vehicles[i].get_id();
-    cout << ",X," << vehicles[i].get_x();
-    cout << ",Y," << vehicles[i].get_y();
-    cout << ",S," << vehicles[i].get_s();
-    cout << ",D," << vehicles[i].get_d();
-    cout << ",Speed," << vehicles[i].get_speed();
-    cout << ",Yaw," << vehicles[i].get_yaw();
-    cout << ",Lane," << vehicles[i].get_lane();
-    cout << endl;
-  }
-  cout << "Optimal lane: " << optimal_lane << endl;
+  // cout << "Optimal vehicle" << endl;
+  // for (int i = 0; i < vehicles.size(); i++) {
+  //   cout << "ID," << vehicles[i].get_id();
+  //   cout << ",X," << vehicles[i].get_x();
+  //   cout << ",Y," << vehicles[i].get_y();
+  //   cout << ",S," << vehicles[i].get_s();
+  //   cout << ",D," << vehicles[i].get_d();
+  //   cout << ",Speed," << vehicles[i].get_speed();
+  //   cout << ",Yaw," << vehicles[i].get_yaw();
+  //   cout << ",Lane," << vehicles[i].get_lane();
+  //   cout << endl;
+  // }
+  // cout << "Optimal lane: " << optimal_lane << endl;
   return optimal_lane;
 }
 
