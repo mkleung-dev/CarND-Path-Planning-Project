@@ -15,6 +15,7 @@ using nlohmann::json;
 using std::string;
 using std::vector;
 
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 //   else the empty string "" will be returned.
@@ -116,14 +117,13 @@ int main() {
           vector<double> next_y_vals;
 
           /**
-           * TODO: define a path made up of (x,y) points that the car will visit
-           *   sequentially every .02 seconds
+           * Compute the (x,y) points that the car will visit sequentially every .02 seconds.
            */
           std::cout.precision(10);
-          my_vehicle.update_position(car_x, car_y, car_s, car_d, car_yaw, car_speed / 2.24, sensor_fusion);
+          my_vehicle.update_position(car_x, car_y, car_s, car_d, car_yaw * M_PI / 180, car_speed / 2.24, sensor_fusion);
           my_vehicle.update_state();
           my_vehicle.update_action();
-          my_vehicle.compute_path(previous_path_x, previous_path_y, next_x_vals, next_y_vals);
+          my_vehicle.compute_trajectory(previous_path_x, previous_path_y, next_x_vals, next_y_vals);
 
 
           msgJson["next_x"] = next_x_vals;
