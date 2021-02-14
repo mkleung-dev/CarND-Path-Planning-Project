@@ -25,7 +25,9 @@ MyVehicle::MyVehicle() : Vehicle() {
   max_velocity = 48.5 / 2.24;
   max_acc = 8;
   target_velocity = max_velocity;
-  this->target_lane = 1;
+  target_lane = 1;
+  state = VehicleState::kKeepLane;
+  last_state = VehicleState::kKeepLane;
 }
 
 MyVehicle::MyVehicle(WayPointMap &way_point_map) : MyVehicle() {
@@ -99,9 +101,7 @@ void MyVehicle::update_state() {
 
   if (state == VehicleState::kKeepLane) {
     int optimal_lane = get_optimal_lane();
-    // cout << "self_lane: " << this->get_lane() << " max_lane: " << optimal_lane << endl;
     if (this->get_s_diff(zero_vehicle, -(keep_land_s + CHANGE_LANE_DIST)) > 0) {
-      // cout << "can change lane." << endl;
       if (optimal_lane < this->target_lane) {
         state = VehicleState::kPrepareLaneChangeLeft;
       } else if (optimal_lane > this->target_lane) {
@@ -110,7 +110,6 @@ void MyVehicle::update_state() {
     }
   } else if (state == VehicleState::kPrepareLaneChangeLeft) {
     int optimal_lane = get_optimal_lane();
-    // cout << "self_lane: " << this->get_lane() << " max_lane: " << max_speed_lane << endl;
     Vehicle zero_vehicle;
     if (optimal_lane == this->target_lane) {
       state = VehicleState::kKeepLane;
@@ -130,7 +129,6 @@ void MyVehicle::update_state() {
     }
   } else if (state == VehicleState::kPrepareLaneChangeRight) {
     int optimal_lane = get_optimal_lane();
-    // cout << "self_lane: " << this->get_lane() << " max_lane: " << max_speed_lane << endl;
     Vehicle zero_vehicle;
     if (optimal_lane == this->target_lane) {
       state = VehicleState::kKeepLane;
@@ -522,13 +520,12 @@ double MyVehicle::compute_curr_velocity() {
   double speed_ahead = target_speed;
   double speed_behind = 0;
   if (get_vehicle_ahead(vehicle_ahead)) {
-    // cout << "get_vehicle_ahead," << vehicle_ahead.get_speed() << endl;
     double ahead_speed_diff = vehicle_ahead.get_velocity() - this->get_velocity();
     if (vehicle_ahead.get_s_diff(*this, -15 - this->get_velocity() * 1.0) < 0) {
       speed_ahead = vehicle_ahead.get_velocity() - 2.0;
     }
-    if (vehicle_ahead.get_s_diff(*this, -this->get_velocity() * 1.0) < 0) {
-      speed_ahead = this->get_velocity() / 2.0;
+    if (vehicle_ahead.get_s_diff(*this, -5 - this->get_velocity() * 1.0) < 0) {
+      speed_ahead = vehicle_ahead.get_velocity() / 2.0;
     }
     if (vehicle_ahead.get_s_diff(*this, -10) < 0) {
       speed_ahead = 0;
