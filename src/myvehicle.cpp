@@ -437,16 +437,8 @@ bool MyVehicle::can_change_lane(vector<Vehicle> &vehicles) {
    * @output if the vehicle can change lane given the vehicles on wanted lane.
    */
   for (int i = 0; i < vehicles.size(); i++) {
-    double behind_speed_diff = vehicles[i].get_velocity() - this->get_velocity();
-    double ahead_speed_diff = this->get_velocity() - vehicles[i].get_velocity();
-    if (behind_speed_diff < 0) {
-      behind_speed_diff = 0;
-    }
-    if (ahead_speed_diff < 0) {
-      ahead_speed_diff = 0;
-    }
-    if (this->get_s_diff(vehicles[i], -10 - vehicles[i].get_velocity() * 1.0) < 0 &&  //car behind
-        this->get_s_diff(vehicles[i], 10 + this->get_velocity() * 1.0) > 0) //car ahead
+    if (this->get_s_diff(vehicles[i], -15 - vehicles[i].get_velocity() * 1.0) < 0 &&  //car behind
+        this->get_s_diff(vehicles[i], 15 + this->get_velocity() * 1.0) > 0) //car ahead
     {
       return false;
     }
