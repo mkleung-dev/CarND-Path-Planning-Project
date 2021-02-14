@@ -195,7 +195,7 @@ public:
    *
    * @output the target velocity.
    */
-  double compute_curr_speed();
+  double compute_curr_velocity();
 
   /**
    * Dump the all the current info the object to the terminal.

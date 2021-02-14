@@ -6,7 +6,7 @@
 using std::vector;
 
 /**
- * Class to store waypoint data
+ * Class to store waypoint data.
  */ 
 class WayPointMap {
 public:

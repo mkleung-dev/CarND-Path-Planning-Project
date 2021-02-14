@@ -171,15 +171,15 @@ void MyVehicle::update_action() {
     if (this->get_s_diff(zero_vehicle, -(keep_land_s + CHANGE_LANE_DIST)) < 0) {
       target_acc = max_acc  / 2;
     }
-    target_velocity = compute_curr_speed();
+    target_velocity = compute_curr_velocity();
   } else if (state == VehicleState::kLaneChangeLeft) {
     this->target_lane = this->target_lane - 1;
   } else if (state == VehicleState::kLaneChangeRight) {
     this->target_lane = this->target_lane + 1;
   } else if (state == VehicleState::kPrepareLaneChangeLeft) {
-    target_velocity = compute_curr_speed();
+    target_velocity = compute_curr_velocity();
   } else if (state == VehicleState::kPrepareLaneChangeRight) {
-    target_velocity = compute_curr_speed();
+    target_velocity = compute_curr_velocity();
   }
 }
 
@@ -205,10 +205,13 @@ void MyVehicle::compute_trajectory(
   int prev_size = previous_path_x.size();
 
   // Add the previous path.
-  for (int i = 0; i < previous_path_x.size(); i++)
+  for (int i = 0; i < prev_size; i++)
   {
     path_x.push_back(previous_path_x[i]);
     path_y.push_back(previous_path_y[i]);
+
+    x_for_spline.push_back(previous_path_x[i]);
+    y_for_spline.push_back(previous_path_y[i]);
   }
 
   // Compute the future path.
@@ -249,12 +252,17 @@ void MyVehicle::compute_trajectory(
   ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
 
   vector<double> tempSD = getFrenet(ref_x, ref_y, ref_yaw, way_point_map);
-  x_for_spline.push_back(ref_x_prev);
-  y_for_spline.push_back(ref_y_prev);
-  x_for_spline.push_back(ref_x);
-  y_for_spline.push_back(ref_y);
+  if (prev_size == 0) {
+    x_for_spline.push_back(ref_x_prev);
+    y_for_spline.push_back(ref_y_prev);
+    x_for_spline.push_back(ref_x);
+    y_for_spline.push_back(ref_y);
+  }
 
-  double start_change = 30;
+  double start_change = ref_velocity * 1.5;
+  if (start_change < 10) {
+    start_change = 10;
+  }
   for (double step = start_change; step < start_change + 30.0 * 2 + 1; step += 30.0) {
     vector<double> tempXY = getXY(tempSD[0] + step, (2.0 + 4.0 * target_lane), way_point_map);
     x_for_spline.push_back(tempXY[0]);
@@ -510,7 +518,7 @@ int MyVehicle::get_optimal_lane() {
   return optimal_lane;
 }
 
-double MyVehicle::compute_curr_speed() {
+double MyVehicle::compute_curr_velocity() {
   /**
    * Compute the target velocity under the current situation.
    *
@@ -528,7 +536,7 @@ double MyVehicle::compute_curr_speed() {
       speed_ahead = vehicle_ahead.get_velocity() - 2.0;
     }
     if (vehicle_ahead.get_s_diff(*this, -this->get_velocity() * 1.0) < 0) {
-      speed_ahead = this->get_velocity() / 4.0;
+      speed_ahead = this->get_velocity() / 2.0;
     }
     if (vehicle_ahead.get_s_diff(*this, -10) < 0) {
       speed_ahead = 0;
